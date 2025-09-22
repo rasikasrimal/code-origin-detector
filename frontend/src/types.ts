@@ -1,4 +1,4 @@
-﻿export type OriginLabel = "ai" | "human";
+export type OriginLabel = "ai" | "human";
 
 export interface Explanation {
   id: string;
@@ -15,14 +15,4 @@ export interface PredictionRecord {
   confidence: number;
   explanations: Explanation[];
   createdAt: string;
-}
-
-export interface PredictionRequestBody {
-  filename: string;
-  language: string;
-  code: string;
-}
-
-export interface PredictionResponse {
-  result: PredictionRecord;
 }

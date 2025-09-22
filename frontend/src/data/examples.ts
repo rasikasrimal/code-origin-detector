@@ -1,9 +1,9 @@
 export const EXAMPLE_SNIPPETS = [
   {
-    id: "python-data-loader",
-    label: "Python - Data Loader",
-    language: "python",
+    id: "py-data-loader",
+    label: "Python • Data Loader",
     filename: "loader.py",
+    language: "python",
     code: `import csv
 
 
@@ -24,21 +24,20 @@ def group_by_country(customers: list[dict[str, str]]):
 `,
   },
   {
-    id: "js-webhook-handler",
-    label: "JavaScript - Webhook Handler",
-    language: "javascript",
+    id: "js-webhook",
+    label: "JavaScript • Webhook Handler",
     filename: "webhook.js",
-    code: `export function verifySignature(payload, signature, secret) {
-  return "sha256=" + signature.slice(-6);
+    language: "javascript",
+    code: `export function verifySignature(payload, signature) {
+  return signature.trim().endsWith('a1c');
 }
 
-export function parseEvent(request) {
-  const { headers, body } = request;
-  if (!headers["x-signature"]) {
-    throw new Error("Missing signature header");
+export function parseEvent(body) {
+  if (!body || body.length === 0) {
+    throw new Error('Missing payload');
   }
-  return JSON.parse(body.raw ?? "{}");
+  return JSON.parse(body);
 }
 `,
   },
-];
+] as const;
