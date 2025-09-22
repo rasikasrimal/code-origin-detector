@@ -1,0 +1,25 @@
+name: Code Origin Check
+
+on:
+  pull_request:
+    paths:
+      - "**/*.py"
+      - "**/*.js"
+
+jobs:
+  detect-origin:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install package
+        run: pip install .[ci]
+      - name: Run detector
+        run: code-origin-detector predict . --include "*.py,*.js" --report origin_report.json --threshold 0.8 --output-format json
+      - name: Upload report
+        uses: actions/upload-artifact@v4
+        with:
+          name: origin-report
+          path: origin_report.json

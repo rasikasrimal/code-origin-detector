@@ -1,0 +1,17 @@
+name: code-origin-detector
+
+inputs:
+  threshold:
+    description: "Probability threshold for AI flag"
+    required: false
+    default: "0.8"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Install dependencies
+      shell: bash
+      run: pip install code-origin-detector
+    - name: Run detector
+      shell: bash
+      run: code-origin-detector predict . --include "*.py,*.js" --threshold ${{ inputs.threshold }}

@@ -1,0 +1,56 @@
+[build-system]
+requires = ["setuptools>=67", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "code-origin-detector"
+version = "0.1.0"
+description = "Binary classifier that estimates whether source code was authored by humans or AI systems."
+readme = "README.md"
+authors = [{name = "Code Origin Detector Team"}]
+license = {file = "LICENSE"}
+requires-python = ">=3.10"
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent"
+]
+dependencies = [
+  "typer[all]>=0.9",
+  "rich>=13",
+  "scikit-learn>=1.3",
+  "numpy>=1.23",
+  "pandas>=2.0",
+  "joblib>=1.3",
+  "shap>=0.44",
+  "tree-sitter>=0.20",
+  "radon>=6.0",
+  "wordfreq>=3.0",
+  "orjson>=3.9",
+  "pyyaml>=6.0"
+]
+
+[project.scripts]
+code-origin-detector = "detector.cli:app"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[project.optional-dependencies]
+ci = [
+  "pytest",
+  "pytest-cov",
+  "ruff",
+  "mypy"
+]
+
+[tool.ruff]
+line-length = 100
+
+[tool.black]
+line-length = 100
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+addopts = "-ra -q"
+testpaths = ["tests"]

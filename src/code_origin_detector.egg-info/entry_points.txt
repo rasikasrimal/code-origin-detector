@@ -1,0 +1,2 @@
+[console_scripts]
+code-origin-detector = detector.cli:app
