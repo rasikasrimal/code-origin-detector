@@ -1,45 +1,27 @@
-:root {
-  color-scheme: light;
-  font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    @apply bg-surface-muted font-sans text-neutral-900 antialiased;
+  }
+
+  body {
+    @apply min-h-screen bg-surface-muted text-neutral-900;
+  }
+
+  #root {
+    @apply min-h-screen;
+  }
+
+  a {
+    @apply text-inherit no-underline;
+  }
 }
 
-body {
-  margin: 0;
-  min-height: 100vh;
-  background-color: #f8fafc;
-  color: #0f172a;
-}
-
-#root {
-  min-height: 100vh;
-}
-
-a {
-  color: inherit;
-}
-
-a:focus-visible {
-  outline: none;
-}
-
-.skip-link {
-  position: absolute;
-  left: -999px;
-  top: 1rem;
-  z-index: 50;
-  padding: 0.75rem 1.25rem;
-  border-radius: 9999px;
-  background: #0f172a;
-  color: #ffffff;
-  transition: transform 0.2s ease;
-  transform: translateY(-10px);
-}
-
-.skip-link:focus-visible {
-  outline: none;
+@layer components {
+  .skip-link {
+    @apply absolute left-1/2 top-4 -translate-x-1/2 -translate-y-10 rounded-full bg-neutral-900 px-5 py-2 text-sm font-semibold text-white shadow-card transition focus-visible:translate-y-0 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-brand-500 opacity-0;
+  }
 }

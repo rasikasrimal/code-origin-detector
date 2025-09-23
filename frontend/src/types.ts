@@ -1,5 +1,15 @@
 export type OriginVerdict = "ai" | "human" | "inconclusive";
 
+export type ModelProfile = "heuristic_v1" | "ml_stack" | "hybrid_v2";
+
+export type ExplanationLevel = "concise" | "full";
+
+export interface AnalysisSettings {
+  useHeuristics: boolean;
+  model: ModelProfile;
+  explanationLevel: ExplanationLevel;
+}
+
 export interface Explanation {
   id: string;
   message: string;
@@ -17,12 +27,15 @@ export interface PredictionRecord {
   createdAt: string;
   explanations: Explanation[];
   notes?: string[];
+  settings: AnalysisSettings;
+  runDurationMs: number;
 }
 
 export interface AnalysisPayload {
   code: string;
   filename: string;
   language: string;
+  settings: AnalysisSettings;
 }
 
 export type AnalysisState = "idle" | "loading" | "success" | "error" | "timeout";
