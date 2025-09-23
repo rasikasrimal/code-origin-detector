@@ -27,7 +27,6 @@ A research-grade toolkit for estimating whether a source file was written by a h
 ├── src/                     # Python package (CLI, heuristics, features, models)
 │   └── detector/            # CLI entrypoint and core detection logic
 └── tests/                   # Python unit and integration suites
-```
 |-- scripts/                   # Data collection and preprocessing jobs
 |-- src/
 |   |-- detector/              # CLI entrypoint, inference logic, heuristics, featurizers, models, utils
@@ -39,8 +38,7 @@ A research-grade toolkit for estimating whether a source file was written by a h
 |   |-- src/types.ts           # Frontend domain types (analysis settings, predictions, explanations)
 |   |-- tailwind.config.js     # Design token extensions (brand palette, shadows, spacing)
 |-- .github/workflows/         # CI definitions
-`
-
+```
 ## Getting started
 
 ### Backend CLI
@@ -72,7 +70,8 @@ Open the Vite URL (default http://localhost:5173) to explore the detector flow, 
 
 ## Testing and quality
 
-- **Python:** pytest, pytest --cov, uff check, and mypy (install via pip install -e .[ci]).
+- **Python:** pytest, pytest --cov, 
+uff check, and mypy (install via pip install -e .[ci]).
 - **Frontend:** 
 pm run lint, 
 pm test, 
@@ -90,3 +89,4 @@ Metadata schemas live in data/metadata/schema.json for consistent ingestion acro
 ## Responsible use
 
 The detector produces advisory signals, not definitive judgments. False positives can occur for human-written code (especially boilerplate or generated scaffolding), and AI-generated code can resemble expert human work. Treat probabilities as guidance to focus manual review, not as an automated gate or policy decision.
+
