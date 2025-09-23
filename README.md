@@ -11,25 +11,23 @@ A research-grade toolkit for estimating whether a source file was written by a h
 - Statistical model hooks (logistic regression, random forest) with calibrated probabilities and optional stacking.
 - Command-line interface for single files, directories, and benchmark manifests with JSON or pretty outputs.
 - Dataset utilities for reproducible collection, hashing-based deduplication, and manifest-driven experiments.
-- Responsive web dashboard (rontend/) with configurable model profiles, heuristic overlays, and result history to mirror the CLI flow while surfacing explanations.
-
-## Tech stack
-
-- **Backend:** Python 3.10+, Typer, Rich, NumPy, Pandas, scikit-learn, SHAP, tree-sitter, Radon, wordfreq, orjson.
-- **Frontend:** React 19, TypeScript 5, Vite 7, Tailwind CSS 3, Jest + Testing Library, ESLint (flat) + Prettier.
-- **Tooling:** Ruff, mypy, pytest (Python); npm scripts for lint, test, build, and format on the frontend.
-
-## Repository layout
-
-`
-code-origin-detector/
-|-- README.md
-|-- pyproject.toml             # Python package metadata
-|-- requirements.txt           # CLI/runtime dependencies
-|-- package.json               # Root JS helpers (linting hooks)
-|-- data/                      # Dataset manifests and artifacts (gitignored where needed)
-|-- docs/                      # Design notes, prompt catalog, reports
-|-- notebooks/                 # Exploratory analysis and modelling notebooks
+```text
+├── README.md
+├── pyproject.toml           # Python package metadata
+├── requirements.txt         # Runtime dependencies for the CLI
+├── .github/workflows/       # Continuous integration workflows
+├── docs/                    # Design notes, prompt catalog, and reports
+│   └── examples/            # Sample walkthrough inputs and outputs
+├── frontend/                # React + Vite dashboard implementation
+│   ├── public/              # Static assets served by Vite
+│   ├── src/                 # UI components, hooks, and utilities
+│   └── package.json         # Frontend tooling and scripts
+├── notebooks/               # Exploration and modelling notebooks
+├── scripts/                 # Data collection and preprocessing jobs
+├── src/                     # Python package (CLI, heuristics, features, models)
+│   └── detector/            # CLI entrypoint and core detection logic
+└── tests/                   # Python unit and integration suites
+```
 |-- scripts/                   # Data collection and preprocessing jobs
 |-- src/
 |   |-- detector/              # CLI entrypoint, inference logic, heuristics, featurizers, models, utils
