@@ -1,4 +1,4 @@
-export type OriginLabel = "ai" | "human";
+export type OriginVerdict = "ai" | "human" | "inconclusive";
 
 export interface Explanation {
   id: string;
@@ -10,9 +10,24 @@ export interface PredictionRecord {
   id: string;
   filename: string;
   language: string;
-  label: OriginLabel;
+  label: OriginVerdict;
   probability: number;
   confidence: number;
-  explanations: Explanation[];
+  snippetLength: number;
   createdAt: string;
+  explanations: Explanation[];
+  notes?: string[];
+}
+
+export interface AnalysisPayload {
+  code: string;
+  filename: string;
+  language: string;
+}
+
+export type AnalysisState = "idle" | "loading" | "success" | "error" | "timeout";
+
+export interface AnalysisStatus {
+  state: AnalysisState;
+  message: string;
 }
