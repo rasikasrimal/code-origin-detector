@@ -22,6 +22,14 @@ const MAX_CHARACTERS = 20_000;
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
 const SUPPORTED_EXTENSIONS = ['js', 'jsx', 'ts', 'tsx', 'py', 'go', 'java', 'cs', 'rb', 'php', 'cpp', 'c', 'rs', 'md'];
 
+function shouldShowAdvancedByDefault(settings: AnalysisSettings) {
+  return (
+    settings.useHeuristics ||
+    settings.model !== 'heuristic_v1' ||
+    settings.explanationLevel !== 'full'
+  );
+}
+
 const LANGUAGE_OPTIONS: { value: string; label: string }[] = [
   { value: 'auto', label: 'Auto detect' },
   { value: 'javascript', label: 'JavaScript' },
@@ -56,9 +64,7 @@ export const AnalyzerPanel = forwardRef<HTMLTextAreaElement, AnalyzerPanelProps>
 ) {
   const [inputMode, setInputMode] = useState<'paste' | 'upload'>('paste');
   const [fileError, setFileError] = useState<string | null>(null);
-  const [advancedExpanded, setAdvancedExpanded] = useState(() =>
-    settings.useHeuristics || settings.model !== 'heuristic_v1' || settings.explanationLevel !== 'full',
-  );
+  const [advancedExpanded, setAdvancedExpanded] = useState(() => shouldShowAdvancedByDefault(settings));
   const hiddenInputRef = useRef<HTMLInputElement | null>(null);
 
   const assignRef = (node: HTMLTextAreaElement | null) => {

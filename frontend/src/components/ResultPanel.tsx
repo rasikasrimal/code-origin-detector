@@ -47,6 +47,10 @@ const confidenceWidths = [
 ];
 
 function resolveConfidenceWidth(value: number) {
+  if (confidenceWidths.length === 0) {
+    return 'w-conf-0';
+  }
+
   const entry = confidenceWidths.find((item) => value <= item.max) ?? confidenceWidths.at(-1);
   return entry?.className ?? 'w-conf-0';
 }

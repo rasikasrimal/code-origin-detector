@@ -30,6 +30,17 @@ const LANGUAGE_LABELS: Record<string, string> = {
   markdown: 'Markdown',
 };
 
+const LANGUAGE_CODE_PATTERNS: Record<string, RegExp[]> = {
+  Python: [/def\s+\w+\(/, /import\s+os/],
+  Go: [/package\s+\w+/, /func\s+\w+\(/],
+  Java: [/class\s+\w+\s+implements/, /System\.out\.println/],
+  'C#': [/namespace\s+\w+/, /using\s+System/],
+  JavaScript: [/function\s+\w+\(/, /console\.log/, /=>/],
+  Rust: [/fn\s+\w+\(/, /let\s+mut/],
+  'C++': [/#include\s+</, /std::/],
+  HTML: [/<!DOCTYPE html>/i, /<div/],
+};
+
 function App() {
   const [code, setCode] = useState('');
   const [filename, setFilename] = useState('snippet.txt');
@@ -350,14 +361,11 @@ function detectLanguageFromFilename(name: string) {
 }
 
 function detectLanguageFromCode(code: string) {
-  if (/def\s+\w+\(/.test(code) || /import\s+os/.test(code)) return 'Python';
-  if (/package\s+\w+/.test(code) || /func\s+\w+\(/.test(code)) return 'Go';
-  if (/class\s+\w+\s+implements|System\.out\.println/.test(code)) return 'Java';
-  if (/namespace\s+\w+|using\s+System/.test(code)) return 'C#';
-  if (/function\s+\w+\(|console\.log/.test(code) || /=>/.test(code)) return 'JavaScript';
-  if (/fn\s+\w+\(/.test(code) || /let\s+mut/.test(code)) return 'Rust';
-  if (/#include\s+</.test(code) || /std::/.test(code)) return 'C++';
-  if (/<!DOCTYPE html>/i.test(code) || /<div/.test(code)) return 'HTML';
+  for (const [language, patterns] of Object.entries(LANGUAGE_CODE_PATTERNS)) {
+    if (patterns.some((regex) => regex.test(code))) {
+      return language;
+    }
+  }
   return null;
 }
 
