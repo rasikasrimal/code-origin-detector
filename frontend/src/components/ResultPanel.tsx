@@ -1,288 +1,218 @@
-import type { MouseEvent } from "react";
-import { forwardRef, useMemo, useState } from "react";
-import type { AnalysisStatus, PredictionRecord } from "../types";
+import { hoverPop, listItem, press } from '../lib/animations';
+import type { AnalysisStatus, PredictionRecord } from '../types';
 
-interface Props {
-  active?: PredictionRecord;
+interface ResultPanelProps {
+  activeRecord?: PredictionRecord;
   history: PredictionRecord[];
   status: AnalysisStatus;
-  onCopy: () => Promise<void> | void;
-  onDownload: () => void;
-  onSelect: (_id: string) => void;
+  onSelect: (id: string) => void;
   onClearHistory: () => void;
-  onReset: () => void;
+  onCopy: () => void;
+  onExport: () => void;
 }
 
-const CONFIDENCE_WIDTH_CLASSES = [
-  "w-[0%]",
-  "w-[10%]",
-  "w-[20%]",
-  "w-[30%]",
-  "w-[40%]",
-  "w-[50%]",
-  "w-[60%]",
-  "w-[70%]",
-  "w-[80%]",
-  "w-[90%]",
-  "w-[100%]",
-] as const;
+const verdictLabels: Record<PredictionRecord['label'], { label: string; tone: string }> = {
+  ai: { label: 'AI leaning', tone: 'bg-primary-100 text-primary-700' },
+  human: { label: 'Human leaning', tone: 'bg-success-100 text-success-500' },
+  inconclusive: { label: 'Inconclusive', tone: 'bg-warning-100 text-warning-500' },
+};
 
-export const ResultPanel = forwardRef<HTMLDivElement, Props>(function ResultPanel(
-  { active, history, status, onCopy, onDownload, onSelect, onClearHistory, onReset }: Props,
-  forwardedRef,
-) {
-  const [expanded, setExpanded] = useState(false);
-  const [copyState, setCopyState] = useState<"idle" | "success" | "error">("idle");
+const probabilityNotes: Record<PredictionRecord['label'], string> = {
+  ai: 'High probability indicates likely machine assistance.',
+  human: 'Signals point toward manual authorship.',
+  inconclusive: 'Signals conflict. Manual review recommended.',
+};
 
-  const headline = useMemo(() => {
-    if (!active) return "Results";
-    if (active.label === "ai") return "AI-leaning";
-    if (active.label === "human") return "Human-leaning";
-    return "Inconclusive";
-  }, [active]);
+const confidenceWidths = [
+  { max: 0.05, className: 'w-conf-5' },
+  { max: 0.1, className: 'w-conf-10' },
+  { max: 0.15, className: 'w-conf-15' },
+  { max: 0.2, className: 'w-conf-20' },
+  { max: 0.25, className: 'w-conf-25' },
+  { max: 0.3, className: 'w-conf-30' },
+  { max: 0.35, className: 'w-conf-35' },
+  { max: 0.4, className: 'w-conf-40' },
+  { max: 0.45, className: 'w-conf-45' },
+  { max: 0.5, className: 'w-conf-50' },
+  { max: 0.55, className: 'w-conf-55' },
+  { max: 0.6, className: 'w-conf-60' },
+  { max: 0.65, className: 'w-conf-65' },
+  { max: 0.7, className: 'w-conf-70' },
+  { max: 0.75, className: 'w-conf-75' },
+  { max: 0.8, className: 'w-conf-80' },
+  { max: 0.85, className: 'w-conf-85' },
+  { max: 0.9, className: 'w-conf-90' },
+  { max: 0.95, className: 'w-conf-95' },
+  { max: 1, className: 'w-conf-100' },
+];
 
-  const badgeText = useMemo(() => {
-    if (!active) return "Awaiting analysis";
-    const percentage = Math.round(active.probability * 100);
-    return `${percentage}% AI-likely`;
-  }, [active]);
+function resolveConfidenceWidth(value: number) {
+  if (confidenceWidths.length === 0) {
+    return 'w-conf-0';
+  }
 
-  const confidenceLevel = useMemo(() => {
-    if (!active) return { label: "Unknown", explanation: "Run an analysis to view confidence." };
-    if (active.confidence >= 0.75) return { label: "High", explanation: "Signals are consistent across multiple heuristics." };
-    if (active.confidence >= 0.55) return { label: "Medium", explanation: "Signals show a moderate lean with some uncertainty." };
-    return { label: "Low", explanation: "Signals conflict, so treat this verdict cautiously." };
-  }, [active]);
+  const entry = confidenceWidths.find((item) => value <= item.max) ?? confidenceWidths.at(-1);
+  return entry?.className ?? 'w-conf-0';
+}
 
-  const confidenceClass = useMemo(() => {
-    if (!active) return CONFIDENCE_WIDTH_CLASSES[0];
-    const index = Math.min(CONFIDENCE_WIDTH_CLASSES.length - 1, Math.round(active.confidence * 10));
-    return CONFIDENCE_WIDTH_CLASSES[index];
-  }, [active]);
-
-  const limitations = useMemo(() => {
-    if (!active) return ["Use this as one input among many. Probabilities are estimates, not proof."];
-    if (!active.notes || active.notes.length === 0) {
-      return ["Use this as one input among many. Probabilities are estimates, not proof."];
-    }
-    return ["Use this as one input among many. Probabilities are estimates, not proof.", ...active.notes];
-  }, [active]);
-
-  const handleCopy = async () => {
-    try {
-      await onCopy();
-      setCopyState("success");
-      window.setTimeout(() => setCopyState("idle"), 1800);
-    } catch (error) {
-      setCopyState("error");
-      window.setTimeout(() => setCopyState("idle"), 1800);
-    }
-  };
-
-  const historyItems = useMemo(() => history.slice(1), [history]);
+export function ResultPanel({ activeRecord, history, status, onSelect, onClearHistory, onCopy, onExport }: ResultPanelProps) {
+  const loading = status.state === 'loading';
 
   return (
-    <section className="space-y-6" id="results">
-      <header className="space-y-1">
-        <h2 className="text-xl font-semibold text-neutral-900">Latest result</h2>
-        <p className="text-sm text-neutral-600">Probabilistic verdict with supporting signals.</p>
-      </header>
-
-      <div
-        ref={forwardedRef}
-        tabIndex={active ? -1 : undefined}
-        className="rounded-2xl border border-neutral-200 bg-surface px-6 py-6 shadow-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-brand-500"
-      >
-        {!active ? (
-          <div className="flex min-h-[220px] flex-col items-center justify-center gap-3 text-center text-sm text-neutral-500">
-            <p className="font-medium text-neutral-600">Run your first analysis to see the verdict, confidence, and heuristics.</p>
-            <p>Results will land here with a summary you can copy or export.</p>
+    <section className="space-y-6" aria-live="polite">
+      <div className="space-y-4 rounded-3xl border border-neutral-200 bg-white p-6 shadow-soft">
+        <header className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-xl font-semibold text-neutral-900">📊 Latest result</h2>
+            <p className="text-sm text-neutral-600">Verdict updates in real time.</p>
           </div>
-        ) : (
+          <span className={`rounded-full px-3 py-1 text-xs font-semibold ${verdictLabels[activeRecord?.label ?? 'inconclusive'].tone}`}>
+            {verdictLabels[activeRecord?.label ?? 'inconclusive'].label}
+          </span>
+        </header>
+
+        {loading ? (
+          <div className="space-y-4" aria-hidden="true">
+            <div className="skeleton h-10 w-3/4" />
+            <div className="skeleton h-32 w-full" />
+            <div className="skeleton h-24 w-full" />
+          </div>
+        ) : activeRecord ? (
           <div className="space-y-6">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-              <div className="space-y-2">
-                <p className="text-xs font-medium uppercase tracking-wide text-neutral-500">Verdict</p>
-                <p className="text-3xl font-semibold text-neutral-900">{headline}</p>
-                <span className="inline-flex items-center gap-2 rounded-full bg-brand-100 px-3 py-1 text-xs font-semibold text-brand-700">
-                  {badgeText}
-                </span>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="rounded-3xl border border-neutral-200 bg-neutral-50 p-4">
+                <span className="text-xs font-medium uppercase tracking-wide text-neutral-500">Probability (AI)</span>
+                <p className="mt-1 text-2xl font-semibold text-neutral-900">
+                  {(activeRecord.probability * 100).toFixed(0)}%
+                </p>
+                <p className="mt-2 text-sm text-neutral-600">{probabilityNotes[activeRecord.label]}</p>
               </div>
-              <div className="w-full max-w-sm space-y-2">
-                <div className="flex items-center justify-between text-xs text-neutral-500">
-                  <span>Confidence</span>
-                  <span className="font-medium text-neutral-700">{confidenceLevel.label}</span>
+              <div className="rounded-3xl border border-neutral-200 bg-neutral-50 p-4">
+                <span className="text-xs font-medium uppercase tracking-wide text-neutral-500">Confidence</span>
+                <p className="mt-1 text-2xl font-semibold text-neutral-900">
+                  {(activeRecord.confidence * 100).toFixed(0)}%
+                </p>
+                <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-neutral-200">
+                  <div className={`h-full rounded-full bg-primary-500 ${resolveConfidenceWidth(activeRecord.confidence)}`} />
                 </div>
-                <div className="h-2 rounded-full bg-neutral-200">
-                  <div
-                    className={`${confidenceClass} h-full rounded-full transition-all ${
-                      active.confidence >= 0.75
-                        ? "bg-brand-500"
-                        : active.confidence >= 0.55
-                        ? "bg-amber-500"
-                        : "bg-rose-500"
-                    }`}
-                    aria-hidden
-                  />
-                </div>
-                <p className="text-xs text-neutral-500">{confidenceLevel.explanation}</p>
+                <p className="mt-2 text-sm text-neutral-600">Cross-check with manual review when below 70%.</p>
               </div>
             </div>
 
-            <dl className="grid gap-4 sm:grid-cols-2">
-              <div>
+            <dl className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-2xl border border-neutral-200 bg-neutral-50 p-4">
                 <dt className="text-xs font-medium uppercase tracking-wide text-neutral-500">Filename</dt>
-                <dd className="break-words text-sm font-medium text-neutral-800">{active.filename}</dd>
+                <dd className="mt-1 text-sm text-neutral-800">{activeRecord.filename || 'Untitled snippet'}</dd>
               </div>
-              <div>
-                <dt className="text-xs font-medium uppercase tracking-wide text-neutral-500">Detected language</dt>
-                <dd className="text-sm font-medium text-neutral-800">{active.language}</dd>
+              <div className="rounded-2xl border border-neutral-200 bg-neutral-50 p-4">
+                <dt className="text-xs font-medium uppercase tracking-wide text-neutral-500">Language</dt>
+                <dd className="mt-1 text-sm text-neutral-800">{activeRecord.language || 'Auto detected'}</dd>
               </div>
-              <div>
-                <dt className="text-xs font-medium uppercase tracking-wide text-neutral-500">Snippet length</dt>
-                <dd className="text-sm font-medium text-neutral-800">{active.snippetLength.toLocaleString()} characters</dd>
+              <div className="rounded-2xl border border-neutral-200 bg-neutral-50 p-4">
+                <dt className="text-xs font-medium uppercase tracking-wide text-neutral-500">Characters</dt>
+                <dd className="mt-1 text-sm text-neutral-800">{activeRecord.snippetLength.toLocaleString()}</dd>
               </div>
-              <div>
-                <dt className="text-xs font-medium uppercase tracking-wide text-neutral-500">Run settings</dt>
-                <dd className="space-y-1 text-sm text-neutral-700">
-                  <p>Model: {labelForModel(active.settings.model)}</p>
-                  <p>Heuristics: {active.settings.useHeuristics ? "Enabled" : "Disabled"}</p>
-                  <p>Explanation: {active.settings.explanationLevel === "full" ? "Full" : "Concise"}</p>
-                </dd>
+              <div className="rounded-2xl border border-neutral-200 bg-neutral-50 p-4">
+                <dt className="text-xs font-medium uppercase tracking-wide text-neutral-500">Runtime</dt>
+                <dd className="mt-1 text-sm text-neutral-800">{activeRecord.runDurationMs} ms</dd>
               </div>
             </dl>
 
-            <div className="rounded-2xl border border-neutral-200 bg-surface-subtle">
-              <button
-                type="button"
-                onClick={() => setExpanded((value) => !value)}
-                className="flex w-full items-center justify-between px-4 py-3 text-left text-sm font-semibold text-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-brand-500"
-                aria-expanded={expanded}
-              >
-                Why this result?
-                <span aria-hidden>{expanded ? "-" : "+"}</span>
-              </button>
-              {expanded ? (
-                <ul className="space-y-2 border-t border-neutral-200 px-4 py-3 text-sm text-neutral-600">
-                  {active.explanations.map((item) => (
-                    <li key={item.id} className="flex flex-col gap-1 rounded-xl bg-surface px-3 py-2 shadow-inner sm:flex-row sm:items-center sm:justify-between">
-                      <span>{item.message}</span>
-                      <span className="text-xs font-medium text-neutral-500 sm:text-right">
-                        {item.contribution >= 0 ? "+" : ""}
-                        {item.contribution.toFixed(2)}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
-            </div>
-
-            <div className="space-y-2 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-700">
-              <p className="font-semibold">Limitations</p>
-              <ul className="space-y-1">
-                {limitations.map((item) => (
-                  <li key={item}>{item}</li>
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold text-neutral-800">Why this result?</h3>
+              <ul className="grid gap-2">
+                {activeRecord.explanations.map((item) => (
+                  <li key={item.id} className={`${listItem} rounded-2xl border border-neutral-200 bg-neutral-50 p-3 text-sm text-neutral-700`}>
+                    <div className="flex items-center justify-between text-xs text-neutral-500">
+                      <span>Weight</span>
+                      <span>{item.contribution >= 0 ? '+' : ''}{item.contribution.toFixed(2)}</span>
+                    </div>
+                    <p className="mt-1 text-sm text-neutral-700">{item.message}</p>
+                  </li>
                 ))}
               </ul>
             </div>
 
-            <div className="flex flex-wrap gap-3">
+            {activeRecord.notes && activeRecord.notes.length > 0 ? (
+              <div className="space-y-2">
+                <h3 className="text-sm font-semibold text-neutral-800">Notes</h3>
+                <ul className="grid gap-1">
+                  {activeRecord.notes.map((note) => (
+                    <li key={note} className="rounded-2xl border border-neutral-200 bg-neutral-50 px-4 py-2 text-sm text-neutral-600">
+                      {note}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+
+            <div className="flex flex-wrap items-center gap-3">
               <button
                 type="button"
-                onClick={() => void handleCopy()}
-                className="inline-flex items-center gap-2 rounded-full bg-brand-600 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-brand-500"
+                onClick={onCopy}
+                className={`${hoverPop} ${press} inline-flex items-center justify-center rounded-full border border-neutral-200 px-5 py-2 text-sm font-semibold text-neutral-700 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary-500`}
               >
                 Copy summary
               </button>
               <button
                 type="button"
-                onClick={onDownload}
-                className="inline-flex items-center gap-2 rounded-full border border-neutral-200 px-5 py-2 text-sm font-semibold text-neutral-700 transition hover:border-neutral-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-brand-500"
+                onClick={onExport}
+                className={`${hoverPop} ${press} inline-flex items-center justify-center rounded-full bg-primary-600 px-5 py-2 text-sm font-semibold text-white shadow-soft focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary-500`}
               >
-                Download JSON report
-              </button>
-              <button
-                type="button"
-                onClick={(event: MouseEvent<HTMLButtonElement>) => {
-                  event.currentTarget.blur();
-                  onReset();
-                }}
-                className="inline-flex items-center gap-2 rounded-full border border-transparent px-4 py-2 text-sm font-semibold text-neutral-600 transition hover:text-neutral-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-brand-500"
-              >
-                Analyze another snippet
+                Export JSON
               </button>
             </div>
-            {copyState === "success" ? <p className="text-sm text-accent-500">Summary copied.</p> : null}
-            {copyState === "error" ? (
-              <p className="text-sm text-rose-600">Could not access the clipboard. Copy manually instead.</p>
-            ) : null}
+          </div>
+        ) : (
+          <div className="rounded-3xl border border-dashed border-neutral-200 bg-neutral-50 p-6 text-sm text-neutral-600">
+            Run an analysis to view probability, confidence, and drivers here.
           </div>
         )}
       </div>
 
-      <div className="rounded-2xl border border-neutral-200 bg-surface-subtle px-5 py-5 shadow-inner">
-        <div className="mb-3 flex items-center justify-between">
-          <p className="text-sm font-semibold text-neutral-800">History</p>
+      <div className="space-y-4 rounded-3xl border border-neutral-200 bg-white p-6 shadow-soft">
+        <header className="flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-semibold text-neutral-900">🕒 History</h2>
+            <p className="text-sm text-neutral-600">Tap an item to revisit the verdict.</p>
+          </div>
           <button
             type="button"
             onClick={onClearHistory}
-            className="text-xs font-medium text-neutral-500 transition hover:text-neutral-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-brand-500"
+            className={`${hoverPop} ${press} rounded-full border border-neutral-200 px-4 py-2 text-sm font-medium text-neutral-700 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary-500 disabled:cursor-not-allowed disabled:opacity-60`}
             disabled={history.length === 0}
           >
-            Clear history
+            Clear all
           </button>
-        </div>
-        {historyItems.length === 0 ? (
-          <p className="text-xs text-neutral-500">Run a few analyses to build a short recall log.</p>
+        </header>
+
+        {history.length === 0 ? (
+          <p className="rounded-3xl border border-dashed border-neutral-200 bg-neutral-50 p-6 text-sm text-neutral-600">
+            Analyses appear here after each run.
+          </p>
         ) : (
-          <ul className="space-y-2">
-            {historyItems.map((entry) => (
-              <li key={entry.id}>
+          <ul className="space-y-3">
+            {history.map((item) => (
+              <li key={item.id} className={`${listItem} rounded-3xl border border-neutral-200 bg-neutral-50 p-4`}>
                 <button
                   type="button"
-                  onClick={() => onSelect(entry.id)}
-                  className="flex w-full items-center justify-between rounded-xl border border-neutral-200 bg-surface px-4 py-3 text-left text-xs text-neutral-600 transition hover:border-neutral-300 hover:text-neutral-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-brand-500"
+                  onClick={() => onSelect(item.id)}
+                  className={`${hoverPop} ${press} flex w-full flex-col items-start gap-2 text-left focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary-500`}
                 >
-                  <div>
-                    <p className="font-semibold text-neutral-800">{entry.filename}</p>
-                    <p>{new Date(entry.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</p>
+                  <div className="flex w-full items-center justify-between text-sm text-neutral-700">
+                    <span className="font-semibold">{item.filename || 'Untitled snippet'}</span>
+                    <span>{new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                   </div>
-                  <span className="rounded-full bg-surface-subtle px-3 py-1 font-medium text-neutral-600">
-                    {entry.label === "ai" ? "AI" : entry.label === "human" ? "Human" : "Mixed"}
-                  </span>
+                  <div className="flex w-full items-center justify-between text-xs text-neutral-500">
+                    <span>{verdictLabels[item.label].label}</span>
+                    <span>{(item.probability * 100).toFixed(0)}% AI</span>
+                  </div>
                 </button>
               </li>
             ))}
           </ul>
         )}
       </div>
-
-      {status.state === "loading" ? (
-        <p className="text-sm text-neutral-500" aria-live="polite">
-          {status.message}
-        </p>
-      ) : null}
-      {status.state === "error" ? (
-        <p className="text-sm text-rose-600" aria-live="polite">
-          {status.message}
-        </p>
-      ) : null}
-      {status.state === "timeout" ? (
-        <p className="text-sm text-amber-600" aria-live="polite">
-          {status.message}
-        </p>
-      ) : null}
     </section>
   );
-});
-
-function labelForModel(model: PredictionRecord["settings"]["model"]) {
-  switch (model) {
-    case "ml_stack":
-      return "ML stack";
-    case "hybrid_v2":
-      return "Hybrid v2";
-    default:
-      return "Heuristic baseline";
-  }
 }
