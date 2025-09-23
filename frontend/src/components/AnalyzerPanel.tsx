@@ -1,5 +1,6 @@
-import type { ChangeEvent, DragEvent, RefObject } from "react";
+import type { ChangeEvent, DragEvent, KeyboardEvent, RefObject } from "react";
 import { forwardRef, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { EXAMPLE_SNIPPETS } from "../data/examples";
 import type {
   AnalysisPayload,
@@ -74,6 +75,7 @@ export const AnalyzerPanel = forwardRef<HTMLTextAreaElement, AnalyzerPanelProps>
   const [validationError, setValidationError] = useState<string | null>(null);
 
   const derivedLanguage = useMemo(() => detectLanguage(filename, code), [filename, code]);
+  const shouldReduceMotion = useReducedMotion();
 
   useEffect(() => {
     if (status.state === "error" && status.message) {
@@ -132,7 +134,7 @@ export const AnalyzerPanel = forwardRef<HTMLTextAreaElement, AnalyzerPanelProps>
     }
 
     const text = await file.text();
-    if (/\u0000/.test(text)) {
+    if (text.includes("\u0000")) {
       setFileError("binary");
       return;
     }
@@ -172,20 +174,42 @@ export const AnalyzerPanel = forwardRef<HTMLTextAreaElement, AnalyzerPanelProps>
     }
   };
 
-  const clearInputs = () => {
+  const clearInputs = useCallback(() => {
     setCode("");
     setFilename("snippet.txt");
     setMessage({ tone: "info", text: "Inputs cleared." });
     setValidationError(null);
     textareaRef.current?.focus();
-  };
+  }, []);
 
   const updateSettings = (patch: Partial<AnalysisSettings>) => {
     onSettingsChange({ ...settings, ...patch });
   };
 
+  const runAnalysis = useCallback(async () => {
+    if (disabled) return;
+    try {
+      setMessage(null);
+      await onAnalyze({ code, filename, language: derivedLanguage, settings });
+    } catch (error) {
+      if (error instanceof Error) {
+        setMessage({ tone: "error", text: error.message });
+      } else {
+        setMessage({ tone: "error", text: "Something went wrong on our side. Please try again." });
+      }
+    }
+  }, [code, derivedLanguage, disabled, filename, onAnalyze, settings]);
+
+  const showMobileActions = true;
+
   return (
-    <section aria-labelledby="analyzer-heading" className="space-y-6">
+    <motion.section
+      aria-labelledby="analyzer-heading"
+      className="space-y-6"
+      initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.18, ease: "easeOut" }}
+    >
       <header className="space-y-2">
         <h2 id="analyzer-heading" className="text-xl font-semibold text-neutral-900">
           Input options
@@ -195,7 +219,7 @@ export const AnalyzerPanel = forwardRef<HTMLTextAreaElement, AnalyzerPanelProps>
         </p>
       </header>
 
-      <div className="space-y-6 rounded-2xl border border-neutral-200 bg-surface px-6 py-7 shadow-card">
+      <div className="space-y-6 rounded-2xl border border-neutral-200 bg-surface px-6 py-7 shadow-md">
         <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
           <label className="space-y-2" htmlFor="filename">
             <span className="text-sm font-medium text-neutral-800">Filename</span>
@@ -216,7 +240,7 @@ export const AnalyzerPanel = forwardRef<HTMLTextAreaElement, AnalyzerPanelProps>
           </div>
         </div>
 
-        <div className="space-y-2">
+        <div className="space-y-3">
           <label htmlFor="code" className="text-sm font-medium text-neutral-800">
             Paste code
           </label>
@@ -237,40 +261,44 @@ export const AnalyzerPanel = forwardRef<HTMLTextAreaElement, AnalyzerPanelProps>
             </span>
           </div>
           {nearingLimit ? (
-            <p className="text-xs text-amber-600">Approaching limit—keep under 20,000 characters.</p>
+            <p className="text-xs text-amber-600">Approaching limitâ€”keep under 20,000 characters.</p>
           ) : null}
           {validationError ? <p className="text-xs text-rose-600">{validationError}</p> : null}
         </div>
 
         <div className="space-y-3">
-          <div
+          <motion.div
             role="button"
             tabIndex={0}
             onClick={openFilePicker}
-            onKeyDown={(event) => {
+            onKeyDown={(event: KeyboardEvent<HTMLDivElement>) => {
               if (event.key === "Enter" || event.key === " ") {
                 event.preventDefault();
                 openFilePicker();
               }
             }}
-            onDragOver={(event) => {
+            onDragOver={(event: DragEvent<HTMLDivElement>) => {
               event.preventDefault();
               setDragActive(true);
             }}
-            onDragLeave={(event) => {
+            onDragLeave={(event: DragEvent<HTMLDivElement>) => {
               event.preventDefault();
               setDragActive(false);
             }}
-            onDrop={handleDrop}
+            onDrop={(event: DragEvent<HTMLDivElement>) => {
+              void handleDrop(event);
+            }}
             aria-describedby={helperId}
             aria-label="Upload a code file"
-            className={`${
+            className={`flex flex-col items-center justify-center rounded-2xl border-2 border-dashed px-4 py-10 text-center transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-brand-500 ${
               dragActive
                 ? "border-brand-400 bg-brand-50"
                 : fileError
                 ? "border-rose-300 bg-rose-50"
                 : "border-neutral-200 bg-surface-subtle"
-            } flex flex-col items-center justify-center rounded-2xl border-2 border-dashed px-4 py-10 text-center transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-brand-500`}
+            }`}
+            whileHover={{ scale: shouldReduceMotion ? 1 : 1.01 }}
+            whileTap={{ scale: shouldReduceMotion ? 1 : 0.97 }}
           >
             <span className="text-sm font-semibold text-neutral-800">Upload a code file</span>
             <span id={helperId} className="mt-2 text-sm text-neutral-500">
@@ -279,15 +307,15 @@ export const AnalyzerPanel = forwardRef<HTMLTextAreaElement, AnalyzerPanelProps>
             <span className="mt-3 text-xs text-neutral-400">
               {dragActive ? "Release to analyze this file" : "Drop file here"}
             </span>
-          </div>
+          </motion.div>
           <input
             ref={hiddenInputRef}
             type="file"
             className="sr-only"
-            onChange={async (event: ChangeEvent<HTMLInputElement>) => {
+            onChange={(event: ChangeEvent<HTMLInputElement>) => {
               const file = event.target.files?.[0];
               if (file) {
-                await handleFile(file);
+                void handleFile(file);
               }
               event.target.value = "";
             }}
@@ -318,7 +346,7 @@ export const AnalyzerPanel = forwardRef<HTMLTextAreaElement, AnalyzerPanelProps>
             <legend className="text-sm font-medium text-neutral-800">Explanation detail</legend>
             <div className="flex gap-2">
               {EXPLANATION_OPTIONS.map((option) => (
-                <button
+                <motion.button
                   key={option.value}
                   type="button"
                   onClick={() => updateSettings({ explanationLevel: option.value })}
@@ -328,9 +356,10 @@ export const AnalyzerPanel = forwardRef<HTMLTextAreaElement, AnalyzerPanelProps>
                       : "border-neutral-200 bg-surface-subtle text-neutral-600 hover:border-neutral-300"
                   } flex-1 rounded-full border px-3 py-2 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-brand-500`}
                   aria-pressed={settings.explanationLevel === option.value}
+                  whileTap={{ scale: shouldReduceMotion ? 1 : 0.96 }}
                 >
                   {option.label}
-                </button>
+                </motion.button>
               ))}
             </div>
             <p className="text-xs text-neutral-500">
@@ -359,41 +388,32 @@ export const AnalyzerPanel = forwardRef<HTMLTextAreaElement, AnalyzerPanelProps>
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
-          <button
+          <motion.button
             type="button"
             ref={runButtonRef}
-            onClick={async () => {
-              if (disabled) return;
-              try {
-                setMessage(null);
-                await onAnalyze({ code, filename, language: derivedLanguage, settings });
-              } catch (error) {
-                if (error instanceof Error) {
-                  setMessage({ tone: "error", text: error.message });
-                } else {
-                  setMessage({ tone: "error", text: "Something went wrong on our side. Please try again." });
-                }
-              }
-            }}
+            onClick={() => void runAnalysis()}
             disabled={disabled}
             className="inline-flex items-center gap-2 rounded-full bg-brand-600 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-brand-500 disabled:cursor-not-allowed disabled:opacity-50"
+            whileTap={{ scale: shouldReduceMotion ? 1 : 0.97 }}
           >
             {status.state === "loading" ? "Analyzing..." : "Run analysis"}
-          </button>
-          <button
+          </motion.button>
+          <motion.button
             type="button"
             onClick={clearInputs}
             className="rounded-full border border-neutral-200 px-4 py-2 text-sm font-semibold text-neutral-600 transition hover:border-neutral-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-brand-500"
+            whileTap={{ scale: shouldReduceMotion ? 1 : 0.97 }}
           >
             Clear input
-          </button>
-          <button
+          </motion.button>
+          <motion.button
             type="button"
             onClick={openFilePicker}
             className="rounded-full border border-neutral-200 px-4 py-2 text-sm font-semibold text-neutral-600 transition hover:border-neutral-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-brand-500"
+            whileTap={{ scale: shouldReduceMotion ? 1 : 0.97 }}
           >
             Upload file
-          </button>
+          </motion.button>
           <div
             id={statusId}
             role="status"
@@ -411,22 +431,29 @@ export const AnalyzerPanel = forwardRef<HTMLTextAreaElement, AnalyzerPanelProps>
             {status.message}
           </div>
         </div>
-        {message ? (
-          <div
-            role="alert"
-            className={`text-sm ${
-              message.tone === "error"
-                ? "text-rose-600"
-                : message.tone === "success"
-                ? "text-accent-500"
-                : message.tone === "warning"
-                ? "text-amber-600"
-                : "text-neutral-600"
-            }`}
-          >
-            {message.text}
-          </div>
-        ) : null}
+        <AnimatePresence>
+          {message ? (
+            <motion.div
+              key={message.text}
+              role="alert"
+              className={`text-sm ${
+                message.tone === "error"
+                  ? "text-rose-600"
+                  : message.tone === "success"
+                  ? "text-accent-500"
+                  : message.tone === "warning"
+                  ? "text-amber-600"
+                  : "text-neutral-600"
+              }`}
+              initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: shouldReduceMotion ? 0 : -8 }}
+              transition={{ duration: 0.18, ease: "easeOut" }}
+            >
+              {message.text}
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
       </div>
 
       <section id="examples" className="space-y-3">
@@ -435,11 +462,13 @@ export const AnalyzerPanel = forwardRef<HTMLTextAreaElement, AnalyzerPanelProps>
         </header>
         <div className="grid gap-3 md:grid-cols-2">
           {EXAMPLE_SNIPPETS.map((snippet) => (
-            <button
+            <motion.button
               key={snippet.id}
               type="button"
               onClick={() => handleExample(snippet.id)}
-              className="group flex h-full flex-col justify-between rounded-2xl border border-neutral-200 bg-surface px-4 py-4 text-left shadow-sm transition hover:border-neutral-300 hover:shadow-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-brand-500"
+              className="group flex h-full flex-col justify-between rounded-2xl border border-neutral-200 bg-surface px-4 py-4 text-left shadow-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-brand-500"
+              whileHover={{ translateY: shouldReduceMotion ? 0 : -4, boxShadow: shouldReduceMotion ? undefined : "0 24px 40px rgba(15,23,42,0.12)" }}
+              whileTap={{ scale: shouldReduceMotion ? 1 : 0.98 }}
             >
               <div className="space-y-2">
                 <p className="text-xs font-medium uppercase tracking-wide text-neutral-500">{snippet.language}</p>
@@ -449,14 +478,47 @@ export const AnalyzerPanel = forwardRef<HTMLTextAreaElement, AnalyzerPanelProps>
               <div className="mt-3 rounded-lg bg-surface-subtle p-3 font-mono text-xs text-neutral-500 shadow-inner">
                 {getPreview(snippet.code)}
               </div>
-              <span className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-neutral-700 group-hover:text-brand-600">
+              <span className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-neutral-700 transition group-hover:text-brand-600">
                 Use this example
               </span>
-            </button>
+            </motion.button>
           ))}
         </div>
       </section>
-    </section>
+
+      <AnimatePresence>
+        {showMobileActions ? (
+          <motion.div
+            key="mobile-actions"
+            className="pointer-events-none fixed inset-x-0 bottom-0 z-40 px-4 pb-6 md:hidden"
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 16 }}
+            transition={{ duration: 0.18, ease: "easeOut" }}
+          >
+            <div className="pointer-events-auto mx-auto flex w-full max-w-md items-center gap-3 rounded-2xl border border-neutral-200 bg-surface px-4 py-3 shadow-lg">
+              <motion.button
+                type="button"
+                onClick={() => void runAnalysis()}
+                disabled={disabled}
+                className="flex-1 rounded-full bg-brand-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-brand-500 disabled:cursor-not-allowed disabled:opacity-50"
+                whileTap={{ scale: shouldReduceMotion ? 1 : 0.97 }}
+              >
+                {status.state === "loading" ? "Analyzing" : "Run"}
+              </motion.button>
+              <motion.button
+                type="button"
+                onClick={clearInputs}
+                className="rounded-full border border-neutral-200 px-3 py-2 text-sm font-semibold text-neutral-600 transition hover:border-neutral-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-brand-500"
+                whileTap={{ scale: shouldReduceMotion ? 1 : 0.97 }}
+              >
+                Clear
+              </motion.button>
+            </div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+    </motion.section>
   );
 });
 

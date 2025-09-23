@@ -17,5 +17,7 @@ module.exports = {
   setupFilesAfterEnv: ['<rootDir>/src/setupTests.ts'],
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/',
+    'framer-motion': '<rootDir>/src/lib/motion.tsx',
   },
 };
+;

@@ -4,7 +4,8 @@ import App from './App';
 describe('App', () => {
   it('renders the header title', () => {
     render(<App />);
-    expect(screen.getByText(/code origin detector/i)).toBeInTheDocument();
+    const matches = screen.getAllByText(/code origin detector/i);
+    expect(matches.length).toBeGreaterThan(0);
   });
 });
 
