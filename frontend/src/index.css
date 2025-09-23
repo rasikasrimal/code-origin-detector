@@ -4,11 +4,11 @@
 
 @layer base {
   :root {
-    @apply bg-surface-muted font-sans text-neutral-900 antialiased;
+    @apply bg-neutral-50 font-sans text-neutral-900 antialiased;
   }
 
   body {
-    @apply min-h-screen bg-surface-muted text-neutral-900;
+    @apply min-h-screen bg-neutral-50 text-neutral-900;
   }
 
   #root {
@@ -18,10 +18,50 @@
   a {
     @apply text-inherit no-underline;
   }
+
+  button,
+  [role='button'],
+  input,
+  textarea,
+  select {
+    @apply focus-visible:outline-none;
+  }
 }
 
 @layer components {
   .skip-link {
-    @apply absolute left-1/2 top-4 -translate-x-1/2 -translate-y-10 rounded-full bg-neutral-900 px-5 py-2 text-sm font-semibold text-white shadow-card transition focus-visible:translate-y-0 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-brand-500 opacity-0;
+    @apply absolute left-1/2 top-4 -translate-x-1/2 -translate-y-12 rounded-full bg-neutral-900 px-5 py-2 text-sm font-semibold text-white shadow-soft transition focus-visible:translate-y-0 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary-500 opacity-0;
   }
+}
+
+@layer utilities {
+  .focus-ring {
+    @apply ring-2 ring-offset-2 ring-primary-500;
+  }
+
+  .skeleton {
+    @apply animate-shimmer rounded-2xl bg-gradient-to-r from-neutral-200 via-neutral-100 to-neutral-200 bg-[length:400px_100%];
+  }
+
+  .w-conf-0 { width: 0%; }
+  .w-conf-5 { width: 5%; }
+  .w-conf-10 { width: 10%; }
+  .w-conf-15 { width: 15%; }
+  .w-conf-20 { width: 20%; }
+  .w-conf-25 { width: 25%; }
+  .w-conf-30 { width: 30%; }
+  .w-conf-35 { width: 35%; }
+  .w-conf-40 { width: 40%; }
+  .w-conf-45 { width: 45%; }
+  .w-conf-50 { width: 50%; }
+  .w-conf-55 { width: 55%; }
+  .w-conf-60 { width: 60%; }
+  .w-conf-65 { width: 65%; }
+  .w-conf-70 { width: 70%; }
+  .w-conf-75 { width: 75%; }
+  .w-conf-80 { width: 80%; }
+  .w-conf-85 { width: 85%; }
+  .w-conf-90 { width: 90%; }
+  .w-conf-95 { width: 95%; }
+  .w-conf-100 { width: 100%; }
 }

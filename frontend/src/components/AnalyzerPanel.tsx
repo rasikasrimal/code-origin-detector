@@ -1,496 +1,332 @@
-import type { ChangeEvent, DragEvent, RefObject } from "react";
-import { forwardRef, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { EXAMPLE_SNIPPETS } from "../data/examples";
-import type {
-  AnalysisPayload,
-  AnalysisSettings,
-  AnalysisStatus,
-  ExplanationLevel,
-  ModelProfile,
-} from "../types";
+import type { ChangeEvent, FormEvent, RefObject } from 'react';
+import { forwardRef, useMemo, useRef, useState } from 'react';
+import { expandY, hoverPop, listItem, press } from '../lib/animations';
+import type { AnalysisSettings, AnalysisStatus } from '../types';
 
 interface AnalyzerPanelProps {
+  code: string;
+  filename: string;
+  language: string;
   status: AnalysisStatus;
   settings: AnalysisSettings;
-  onSettingsChange: (_settings: AnalysisSettings) => void;
-  onAnalyze: (_payload: AnalysisPayload) => Promise<void>;
+  onCodeChange: (value: string) => void;
+  onFilenameChange: (value: string) => void;
+  onLanguageChange: (value: string) => void;
+  onSettingsChange: (settings: AnalysisSettings) => void;
+  onRun: () => void;
+  onClear: () => void;
   runButtonRef: RefObject<HTMLButtonElement | null>;
 }
 
 const MAX_CHARACTERS = 20_000;
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
-const SUPPORTED_EXTENSIONS = [
-  ".js",
-  ".jsx",
-  ".ts",
-  ".tsx",
-  ".py",
-  ".go",
-  ".java",
-  ".cs",
-  ".rb",
-  ".php",
-  ".cpp",
-  ".c",
-  ".rs",
-  ".md",
-];
+const SUPPORTED_EXTENSIONS = ['js', 'jsx', 'ts', 'tsx', 'py', 'go', 'java', 'cs', 'rb', 'php', 'cpp', 'c', 'rs', 'md'];
 
-const MODEL_OPTIONS: { label: string; value: ModelProfile; helper: string }[] = [
-  { label: "Heuristic baseline", value: "heuristic_v1", helper: "Fast, interpretable scoring." },
-  { label: "ML stack", value: "ml_stack", helper: "Sklearn ensemble with calibrated output." },
-  { label: "Hybrid v2", value: "hybrid_v2", helper: "Blends heuristics with learned weights." },
-];
-
-const EXPLANATION_OPTIONS: { label: string; value: ExplanationLevel; helper: string }[] = [
-  { label: "Concise", value: "concise", helper: "Top drivers only." },
-  { label: "Full", value: "full", helper: "All captured heuristics." },
+const LANGUAGE_OPTIONS: { value: string; label: string }[] = [
+  { value: 'auto', label: 'Auto detect' },
+  { value: 'javascript', label: 'JavaScript' },
+  { value: 'typescript', label: 'TypeScript' },
+  { value: 'python', label: 'Python' },
+  { value: 'go', label: 'Go' },
+  { value: 'java', label: 'Java' },
+  { value: 'csharp', label: 'C#' },
+  { value: 'ruby', label: 'Ruby' },
+  { value: 'php', label: 'PHP' },
+  { value: 'cpp', label: 'C++' },
+  { value: 'rust', label: 'Rust' },
+  { value: 'markdown', label: 'Markdown' },
 ];
 
 export const AnalyzerPanel = forwardRef<HTMLTextAreaElement, AnalyzerPanelProps>(function AnalyzerPanel(
-  { status, settings, onSettingsChange, onAnalyze, runButtonRef }: AnalyzerPanelProps,
+  {
+    code,
+    filename,
+    language,
+    status,
+    settings,
+    onCodeChange,
+    onFilenameChange,
+    onLanguageChange,
+    onSettingsChange,
+    onRun,
+    onClear,
+    runButtonRef,
+  }: AnalyzerPanelProps,
   forwardedRef,
 ) {
-  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const [inputMode, setInputMode] = useState<'paste' | 'upload'>('paste');
+  const [fileError, setFileError] = useState<string | null>(null);
+  const [advancedExpanded, setAdvancedExpanded] = useState(() =>
+    settings.useHeuristics || settings.model !== 'heuristic_v1' || settings.explanationLevel !== 'full',
+  );
+  const hiddenInputRef = useRef<HTMLInputElement | null>(null);
 
-  const assignTextareaRef = (node: HTMLTextAreaElement | null) => {
-    textareaRef.current = node;
-    if (!forwardedRef) return;
-    if (typeof forwardedRef === "function") {
+  const assignRef = (node: HTMLTextAreaElement | null) => {
+    if (typeof forwardedRef === 'function') {
       forwardedRef(node);
-    } else {
+    } else if (forwardedRef) {
       forwardedRef.current = node;
     }
   };
 
-  const hiddenInputRef = useRef<HTMLInputElement | null>(null);
-  const [filename, setFilename] = useState("snippet.txt");
-  const [code, setCode] = useState("");
-  const [message, setMessage] = useState<
-    { tone: "info" | "success" | "error" | "warning"; text: string } | null
-  >(null);
-  const [dragActive, setDragActive] = useState(false);
-  const [fileError, setFileError] = useState<"file-too-large" | "unsupported-language" | "binary" | null>(null);
-  const [validationError, setValidationError] = useState<string | null>(null);
+  const charactersRemaining = MAX_CHARACTERS - code.length;
+  const disabled = status.state === 'loading' || code.trim().length === 0 || code.length > MAX_CHARACTERS;
 
-  const derivedLanguage = useMemo(() => detectLanguage(filename, code), [filename, code]);
+  const helperMessage = useMemo(() => {
+    if (fileError) return fileError;
+    if (code.length > MAX_CHARACTERS) return 'Limit reached. Remove some text.';
+    if (charactersRemaining < 1000 && charactersRemaining >= 0) return `${charactersRemaining} characters left.`;
+    return 'Paste readable source code. We ignore formatting.';
+  }, [charactersRemaining, code.length, fileError]);
 
-  useEffect(() => {
-    if (status.state === "error" && status.message) {
-      setMessage({ tone: "error", text: status.message });
-    } else if (status.state === "success") {
-      setMessage({ tone: "success", text: "Analysis complete. Review the results on the right." });
-    } else if (status.state === "timeout") {
-      setMessage({ tone: "warning", text: status.message });
-    }
-  }, [status]);
+  const runLabel = status.state === 'loading' ? 'Analyzing…' : 'Run analysis';
 
-  const handleCodeChange = (event: ChangeEvent<HTMLTextAreaElement>) => {
-    const next = event.target.value;
-    setCode(next);
-    if (next.length > MAX_CHARACTERS) {
-      setValidationError("This snippet exceeds 20,000 characters. Trim it to continue.");
-    } else {
-      setValidationError(null);
-    }
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (disabled) return;
+    onRun();
   };
 
-  const handleFilenameChange = (event: ChangeEvent<HTMLInputElement>) => {
-    setFilename(event.target.value);
-  };
-
-  const openFilePicker = useCallback(() => {
+  const handleFileButton = () => {
+    setInputMode('upload');
     hiddenInputRef.current?.click();
-  }, []);
+  };
 
-  const handleExample = useCallback((id: string) => {
-    const snippet = EXAMPLE_SNIPPETS.find((item) => item.id === id);
-    if (!snippet) return;
-    setFilename(snippet.filename);
-    setCode(snippet.code);
-    setMessage({ tone: "success", text: "Example loaded. Ready when you are." });
-    setValidationError(
-      snippet.code.length > MAX_CHARACTERS
-        ? "This snippet exceeds 20,000 characters. Trim it to continue."
-        : null,
-    );
-    queueMicrotask(() => textareaRef.current?.focus());
-  }, []);
-
-  const handleFile = async (file: File) => {
-    setFileError(null);
+  const handleFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
     if (file.size > MAX_FILE_BYTES) {
-      setFileError("file-too-large");
+      setFileError('File exceeds 5 MB limit.');
       return;
     }
 
-    const extension = file.name.includes(".") ? `.${file.name.toLowerCase().split(".").pop()!}` : "";
-    const isTextType = file.type.startsWith("text/") || (extension && SUPPORTED_EXTENSIONS.includes(extension));
-    if (!isTextType) {
-      setFileError("unsupported-language");
+    const extension = file.name.includes('.') ? file.name.toLowerCase().split('.').pop() ?? '' : '';
+    if (extension && !SUPPORTED_EXTENSIONS.includes(extension)) {
+      setFileError('Upload a supported code file.');
       return;
     }
 
     const text = await file.text();
-    if (/\u0000/.test(text)) {
-      setFileError("binary");
+    if (text.includes('\u0000')) {
+      setFileError('Binary files are not supported.');
       return;
     }
 
-    setFilename(file.name);
-    setCode(text);
-    setValidationError(text.length > MAX_CHARACTERS ? "This snippet exceeds 20,000 characters. Trim it to continue." : null);
-    setMessage({ tone: "success", text: `Loaded ${file.name}.` });
-    queueMicrotask(() => textareaRef.current?.focus());
+    setFileError(null);
+    onFilenameChange(file.name);
+    onCodeChange(text);
+    setInputMode('paste');
+    event.target.value = '';
   };
 
-  const handleDrop = async (event: DragEvent<HTMLDivElement>) => {
-    event.preventDefault();
-    setDragActive(false);
-    const file = event.dataTransfer.files?.[0];
-    if (file) {
-      await handleFile(file);
-    }
-  };
-
-  const disabled = code.trim().length === 0 || Boolean(validationError) || status.state === "loading";
-  const nearingLimit = code.length >= MAX_CHARACTERS * 0.9 && code.length <= MAX_CHARACTERS;
-
-  const helperId = "drop-helper";
-  const statusId = "analysis-status";
-
-  const resolveFileErrorMessage = () => {
-    switch (fileError) {
-      case "file-too-large":
-        return "This file exceeds 5 MB. Try a smaller file.";
-      case "unsupported-language":
-        return "We couldn't scan this file type. Upload a text-based code file.";
-      case "binary":
-        return "Binary files aren't supported. Please upload readable code.";
-      default:
-        return null;
-    }
-  };
-
-  const clearInputs = () => {
-    setCode("");
-    setFilename("snippet.txt");
-    setMessage({ tone: "info", text: "Inputs cleared." });
-    setValidationError(null);
-    textareaRef.current?.focus();
-  };
-
-  const updateSettings = (patch: Partial<AnalysisSettings>) => {
+  const handleSettingChange = (patch: Partial<AnalysisSettings>) => {
     onSettingsChange({ ...settings, ...patch });
   };
 
-  return (
-    <section aria-labelledby="analyzer-heading" className="space-y-6">
-      <header className="space-y-2">
-        <h2 id="analyzer-heading" className="text-xl font-semibold text-neutral-900">
-          Input options
-        </h2>
-        <p className="text-sm text-neutral-600">
-          Paste code, upload a file, or explore curated examples before running the detector.
-        </p>
-      </header>
+  const toggleAdvancedExpanded = () => {
+    setAdvancedExpanded((value) => !value);
+  };
 
-      <div className="space-y-6 rounded-2xl border border-neutral-200 bg-surface px-6 py-7 shadow-card">
-        <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
-          <label className="space-y-2" htmlFor="filename">
-            <span className="text-sm font-medium text-neutral-800">Filename</span>
-            <input
-              id="filename"
-              value={filename}
-              onChange={handleFilenameChange}
-              className="w-full rounded-lg border border-neutral-200 bg-surface-subtle px-3 py-2 text-sm text-neutral-900 shadow-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-brand-500"
-              autoComplete="off"
-              placeholder="snippet.js"
-            />
-          </label>
-          <div className="flex flex-col items-start gap-2">
-            <span className="text-xs font-medium uppercase tracking-wide text-neutral-500">Detected language</span>
-            <span className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-surface-subtle px-3 py-1 text-xs font-medium text-neutral-600">
-              {derivedLanguage}
-            </span>
-          </div>
-        </div>
+  return (
+    <form onSubmit={handleSubmit} className="space-y-6" aria-labelledby="input-heading">
+      <section className="space-y-4 rounded-3xl border border-neutral-200 bg-white p-6 shadow-soft">
+        <header className="space-y-1">
+          <h2 id="input-heading" className="text-xl font-semibold text-neutral-900">
+            📝 Add code
+          </h2>
+          <p className="text-sm text-neutral-600">Paste source or import a file to begin.</p>
+        </header>
 
         <div className="space-y-2">
-          <label htmlFor="code" className="text-sm font-medium text-neutral-800">
-            Paste code
-          </label>
-          <textarea
-            id="code"
-            ref={assignTextareaRef}
-            value={code}
-            onChange={handleCodeChange}
-            className="h-64 w-full resize-y rounded-2xl border border-neutral-200 bg-surface-subtle px-4 py-3 font-mono text-sm text-neutral-900 shadow-inner transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-brand-500"
-            placeholder="Paste your code snippet or drop a file..."
-            spellCheck={false}
-            aria-describedby="character-count"
-          />
-          <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-neutral-500" id="character-count">
-            <span>Supports up to 20,000 characters.</span>
-            <span className="font-medium text-neutral-600">
-              {code.length.toLocaleString()} / {MAX_CHARACTERS.toLocaleString()} characters
-            </span>
-          </div>
-          {nearingLimit ? (
-            <p className="text-xs text-amber-600">Approaching limit�keep under 20,000 characters.</p>
-          ) : null}
-          {validationError ? <p className="text-xs text-rose-600">{validationError}</p> : null}
-        </div>
-
-        <div className="space-y-3">
-          <div
-            role="button"
-            tabIndex={0}
-            onClick={openFilePicker}
-            onKeyDown={(event) => {
-              if (event.key === "Enter" || event.key === " ") {
-                event.preventDefault();
-                openFilePicker();
-              }
-            }}
-            onDragOver={(event) => {
-              event.preventDefault();
-              setDragActive(true);
-            }}
-            onDragLeave={(event) => {
-              event.preventDefault();
-              setDragActive(false);
-            }}
-            onDrop={handleDrop}
-            aria-describedby={helperId}
-            aria-label="Upload a code file"
-            className={`${
-              dragActive
-                ? "border-brand-400 bg-brand-50"
-                : fileError
-                ? "border-rose-300 bg-rose-50"
-                : "border-neutral-200 bg-surface-subtle"
-            } flex flex-col items-center justify-center rounded-2xl border-2 border-dashed px-4 py-10 text-center transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-brand-500`}
+          <span className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Input options</span>
+          <div className="grid gap-3 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={() => setInputMode('paste')}
+            className={`${hoverPop} ${press} ${listItem} flex h-16 flex-col justify-center rounded-2xl border px-4 text-left text-sm font-medium transition-colors ${inputMode === 'paste' ? 'border-primary-200 bg-primary-50 text-primary-700' : 'border-neutral-200 bg-neutral-50 text-neutral-700'} focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary-500`}
           >
-            <span className="text-sm font-semibold text-neutral-800">Upload a code file</span>
-            <span id={helperId} className="mt-2 text-sm text-neutral-500">
-              Drag & drop or browse. .js, .py, .java, .cpp, .tsx, .md, and more.
-            </span>
-            <span className="mt-3 text-xs text-neutral-400">
-              {dragActive ? "Release to analyze this file" : "Drop file here"}
-            </span>
+            Paste manually
+            <span className="text-xs font-normal text-neutral-500">Quickest way to check snippets.</span>
+          </button>
+          <button
+            type="button"
+            onClick={handleFileButton}
+            className={`${hoverPop} ${press} ${listItem} flex h-16 flex-col justify-center rounded-2xl border px-4 text-left text-sm font-medium transition-colors ${inputMode === 'upload' ? 'border-primary-200 bg-primary-50 text-primary-700' : 'border-neutral-200 bg-neutral-50 text-neutral-700'} focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary-500`}
+          >
+            Upload file
+            <span className="text-xs font-normal text-neutral-500">Accepts plain-text code formats.</span>
+          </button>
           </div>
-          <input
-            ref={hiddenInputRef}
-            type="file"
-            className="sr-only"
-            onChange={async (event: ChangeEvent<HTMLInputElement>) => {
-              const file = event.target.files?.[0];
-              if (file) {
-                await handleFile(file);
-              }
-              event.target.value = "";
-            }}
-          />
-          {fileError ? <p className="text-xs text-rose-600">{resolveFileErrorMessage()}</p> : null}
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2">
-          <label className="flex flex-col gap-2" htmlFor="model">
-            <span className="text-sm font-medium text-neutral-800">Model profile</span>
-            <select
-              id="model"
-              value={settings.model}
-              onChange={(event) => updateSettings({ model: event.target.value as ModelProfile })}
-              className="rounded-lg border border-neutral-200 bg-surface-subtle px-3 py-2 text-sm text-neutral-900 shadow-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-brand-500"
-            >
-              {MODEL_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-            <p className="text-xs text-neutral-500">
-              {MODEL_OPTIONS.find((option) => option.value === settings.model)?.helper}
-            </p>
+        <label className="grid gap-2 text-sm font-medium text-neutral-700" htmlFor="filename">
+          File label
+          <input
+            id="filename"
+            name="filename"
+            value={filename}
+            onChange={(event) => onFilenameChange(event.target.value)}
+            placeholder="example.py"
+            className="w-full rounded-2xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm text-neutral-900 transition focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary-500"
+            aria-describedby="filename-helper"
+          />
+          <span id="filename-helper" className="text-xs font-normal text-neutral-500">
+            Twelve characters min helps context.
+          </span>
+        </label>
+
+        <label className="grid gap-2 text-sm font-medium text-neutral-700" htmlFor="language">
+          Language hint
+          <select
+            id="language"
+            name="language"
+            value={language}
+            onChange={(event) => onLanguageChange(event.target.value)}
+            className="w-full rounded-2xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm text-neutral-900 transition focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary-500"
+          >
+            {LANGUAGE_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+          <span className="text-xs font-normal text-neutral-500">Choose manually if auto guess fails.</span>
+        </label>
+
+        <label className="grid gap-3 text-sm font-medium text-neutral-700" htmlFor="code">
+          Code snippet
+          <textarea
+            ref={assignRef}
+            id="code"
+            name="code"
+            value={code}
+            onChange={(event: ChangeEvent<HTMLTextAreaElement>) => {
+              if (fileError) setFileError(null);
+              onCodeChange(event.target.value);
+            }}
+            rows={14}
+            className="w-full rounded-3xl border border-neutral-200 bg-neutral-50 px-4 py-4 text-sm text-neutral-900 shadow-inner transition focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary-500"
+            aria-describedby="code-helper"
+            spellCheck={false}
+          />
+          <div className="flex items-center justify-between text-xs text-neutral-500" id="code-helper">
+            <span>{helperMessage}</span>
+            <span>{Math.max(charactersRemaining, 0).toLocaleString()} left</span>
+          </div>
+        </label>
+        <input
+          ref={hiddenInputRef}
+          type="file"
+          accept=".js,.jsx,.ts,.tsx,.py,.go,.java,.cs,.rb,.php,.cpp,.c,.rs,.md,.txt"
+          onChange={(event) => {
+            void handleFileChange(event);
+          }}
+          className="sr-only"
+        />
+      </section>
+
+      <section className="space-y-4 rounded-3xl border border-neutral-200 bg-white p-6 shadow-soft">
+        <header className="flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-semibold text-neutral-900">⚙️ Settings</h2>
+            <p className="text-sm text-neutral-600">Tweak overlays before you run.</p>
+          </div>
+          <button
+            type="button"
+            onClick={toggleAdvancedExpanded}
+            className={`${hoverPop} ${press} rounded-full border border-neutral-200 px-4 py-2 text-sm font-medium text-neutral-700 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary-500`}
+            aria-expanded={advancedExpanded}
+            aria-controls="advanced-panel"
+          >
+            {advancedExpanded ? 'Hide advanced' : 'Show advanced'}
+          </button>
+        </header>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <label className="flex items-center gap-3 rounded-2xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm font-medium text-neutral-700">
+            <input
+              type="checkbox"
+              checked={settings.useHeuristics}
+              onChange={(event) => handleSettingChange({ useHeuristics: event.target.checked })}
+              className="h-5 w-5 rounded border-neutral-300 text-primary-600 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary-500"
+            />
+            Enable heuristic overlay
           </label>
-          <fieldset className="space-y-2">
-            <legend className="text-sm font-medium text-neutral-800">Explanation detail</legend>
-            <div className="flex gap-2">
-              {EXPLANATION_OPTIONS.map((option) => (
-                <button
-                  key={option.value}
-                  type="button"
-                  onClick={() => updateSettings({ explanationLevel: option.value })}
-                  className={`${
-                    settings.explanationLevel === option.value
-                      ? "border-brand-200 bg-brand-50 text-brand-700"
-                      : "border-neutral-200 bg-surface-subtle text-neutral-600 hover:border-neutral-300"
-                  } flex-1 rounded-full border px-3 py-2 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-brand-500`}
-                  aria-pressed={settings.explanationLevel === option.value}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
-            <p className="text-xs text-neutral-500">
-              {EXPLANATION_OPTIONS.find((option) => option.value === settings.explanationLevel)?.helper}
-            </p>
-          </fieldset>
-          <div className="rounded-2xl border border-neutral-200 bg-surface-subtle px-4 py-3 md:col-span-2">
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <p className="text-sm font-medium text-neutral-800">Heuristic overlay</p>
-                <p className="text-xs text-neutral-500">Blend rule-based signals into the model output for explainability.</p>
-              </div>
-              <label className="relative inline-flex h-6 w-11 items-center">
+          <p className="rounded-2xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-xs text-neutral-500">
+            Helps explain verdict using handcrafted signals.
+          </p>
+        </div>
+
+        <div id="advanced-panel" data-expanded={advancedExpanded} className={`${expandY} space-y-4`}>
+          <label className="grid gap-2 text-sm font-medium text-neutral-700">
+            Model profile
+            <select
+              value={settings.model}
+              onChange={(event) => handleSettingChange({ model: event.target.value as AnalysisSettings['model'] })}
+              className="w-full rounded-2xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm text-neutral-900 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary-500"
+            >
+              <option value="heuristic_v1">Heuristic baseline</option>
+              <option value="ml_stack">ML stack</option>
+              <option value="hybrid_v2">Hybrid v2</option>
+            </select>
+            <span className="text-xs font-normal text-neutral-500">Pick slower stacks for thoroughness.</span>
+          </label>
+
+          <fieldset className="grid gap-3">
+            <legend className="text-sm font-medium text-neutral-700">Explanation detail</legend>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <label className={`${hoverPop} ${press} flex cursor-pointer items-center justify-between rounded-2xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm text-neutral-700 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary-500`}>
+                Concise
                 <input
-                  type="checkbox"
-                  className="peer sr-only"
-                  checked={settings.useHeuristics}
-                  onChange={(event) => updateSettings({ useHeuristics: event.target.checked })}
-                  aria-label="Toggle heuristic overlay"
+                  type="radio"
+                  name="explanationLevel"
+                  value="concise"
+                  checked={settings.explanationLevel === 'concise'}
+                  onChange={(event) => event.target.checked && handleSettingChange({ explanationLevel: 'concise' })}
+                  className="h-5 w-5 text-primary-600 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary-500"
                 />
-                <span className="absolute inset-0 rounded-full bg-neutral-300 transition peer-checked:bg-brand-500" />
-                <span className="absolute left-1 h-4 w-4 rounded-full bg-white transition peer-checked:translate-x-5" />
+              </label>
+              <label className={`${hoverPop} ${press} flex cursor-pointer items-center justify-between rounded-2xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm text-neutral-700 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary-500`}>
+                Full
+                <input
+                  type="radio"
+                  name="explanationLevel"
+                  value="full"
+                  checked={settings.explanationLevel === 'full'}
+                  onChange={(event) => event.target.checked && handleSettingChange({ explanationLevel: 'full' })}
+                  className="h-5 w-5 text-primary-600 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary-500"
+                />
               </label>
             </div>
+          </fieldset>
+
+          <div className="rounded-2xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-xs text-neutral-500">
+            <strong className="block text-sm text-neutral-700">Heuristic overlay</strong>
+            Provides context when probability feels close.
           </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
           <button
-            type="button"
-            ref={runButtonRef}
-            onClick={async () => {
-              if (disabled) return;
-              try {
-                setMessage(null);
-                await onAnalyze({ code, filename, language: derivedLanguage, settings });
-              } catch (error) {
-                if (error instanceof Error) {
-                  setMessage({ tone: "error", text: error.message });
-                } else {
-                  setMessage({ tone: "error", text: "Something went wrong on our side. Please try again." });
-                }
-              }
-            }}
+            ref={runButtonRef as RefObject<HTMLButtonElement>}
+            type="submit"
             disabled={disabled}
-            className="inline-flex items-center gap-2 rounded-full bg-brand-600 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-brand-500 disabled:cursor-not-allowed disabled:opacity-50"
+            className={`${hoverPop} ${press} inline-flex items-center justify-center rounded-full bg-primary-600 px-6 py-3 text-sm font-semibold text-white shadow-soft focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary-500 disabled:cursor-not-allowed disabled:opacity-60`}
           >
-            {status.state === "loading" ? "Analyzing..." : "Run analysis"}
+            {runLabel}
           </button>
           <button
             type="button"
-            onClick={clearInputs}
-            className="rounded-full border border-neutral-200 px-4 py-2 text-sm font-semibold text-neutral-600 transition hover:border-neutral-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-brand-500"
+            onClick={onClear}
+            className={`${hoverPop} ${press} inline-flex items-center justify-center rounded-full border border-neutral-200 px-6 py-3 text-sm font-semibold text-neutral-700 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary-500`}
           >
-            Clear input
+            Clear inputs
           </button>
-          <button
-            type="button"
-            onClick={openFilePicker}
-            className="rounded-full border border-neutral-200 px-4 py-2 text-sm font-semibold text-neutral-600 transition hover:border-neutral-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-brand-500"
-          >
-            Upload file
-          </button>
-          <div
-            id={statusId}
-            role="status"
-            aria-live="polite"
-            className={`text-sm ${
-              status.state === "error"
-                ? "text-rose-600"
-                : status.state === "success"
-                ? "text-accent-500"
-                : status.state === "loading"
-                ? "text-neutral-500"
-                : "text-neutral-500"
-            }`}
-          >
+          <span className="text-xs text-neutral-500" role="status" aria-live="polite">
             {status.message}
-          </div>
-        </div>
-        {message ? (
-          <div
-            role="alert"
-            className={`text-sm ${
-              message.tone === "error"
-                ? "text-rose-600"
-                : message.tone === "success"
-                ? "text-accent-500"
-                : message.tone === "warning"
-                ? "text-amber-600"
-                : "text-neutral-600"
-            }`}
-          >
-            {message.text}
-          </div>
-        ) : null}
-      </div>
-
-      <section id="examples" className="space-y-3">
-        <header className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold uppercase tracking-wide text-neutral-600">Try a sample snippet</h3>
-        </header>
-        <div className="grid gap-3 md:grid-cols-2">
-          {EXAMPLE_SNIPPETS.map((snippet) => (
-            <button
-              key={snippet.id}
-              type="button"
-              onClick={() => handleExample(snippet.id)}
-              className="group flex h-full flex-col justify-between rounded-2xl border border-neutral-200 bg-surface px-4 py-4 text-left shadow-sm transition hover:border-neutral-300 hover:shadow-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-brand-500"
-            >
-              <div className="space-y-2">
-                <p className="text-xs font-medium uppercase tracking-wide text-neutral-500">{snippet.language}</p>
-                <p className="text-base font-semibold text-neutral-900">{snippet.title}</p>
-                <p className="text-sm text-neutral-500">{snippet.description}</p>
-              </div>
-              <div className="mt-3 rounded-lg bg-surface-subtle p-3 font-mono text-xs text-neutral-500 shadow-inner">
-                {getPreview(snippet.code)}
-              </div>
-              <span className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-neutral-700 group-hover:text-brand-600">
-                Use this example
-              </span>
-            </button>
-          ))}
+          </span>
         </div>
       </section>
-    </section>
+    </form>
   );
 });
-
-function detectLanguage(filename: string, code: string) {
-  const extension = filename.split(".").pop()?.toLowerCase();
-  const byExtension: Record<string, string> = {
-    js: "JavaScript",
-    jsx: "JavaScript",
-    ts: "TypeScript",
-    tsx: "TypeScript",
-    py: "Python",
-    go: "Go",
-    rb: "Ruby",
-    php: "PHP",
-    rs: "Rust",
-    java: "Java",
-    cs: "C#",
-    cpp: "C++",
-    c: "C",
-    md: "Markdown",
-  };
-  if (extension && byExtension[extension]) {
-    return byExtension[extension];
-  }
-
-  if (/\b(def|async\s+def|import\s)/.test(code)) return "Python";
-  if (/\b(function|const|let|=>|React)\b/.test(code)) return "JavaScript";
-  if (/\bpackage\s+\w+|func\s+/.test(code)) return "Go";
-  if (/#include\s+<|std::/.test(code)) return "C++";
-  if (/using\s+System|namespace\s+/.test(code)) return "C#";
-  return "Plain text";
-}
-
-function getPreview(code: string) {
-  const trimmed = code.trim().split(/\r?\n/).slice(0, 3);
-  return trimmed.join("\n");
-}
