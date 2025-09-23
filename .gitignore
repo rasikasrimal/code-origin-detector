@@ -18,3 +18,7 @@ artifacts/
 *.json
 *.csv
 *.tsv
+
+# Allow frontend manifests
+!frontend/package.json
+!frontend/package-lock.json

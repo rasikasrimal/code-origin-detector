@@ -1,43 +1,42 @@
-# Code Origin Detector – Frontend Dashboard
+# Code Origin Detector UI
 
-Interactive web dashboard built with Next.js 15 (App Router), Tailwind CSS, shadcn/ui primitives, Zustand, and Lucide icons.
+A lightweight dashboard built with React 18 + TypeScript, Vite 5, Tailwind CSS 3, and Jest + Testing Library.
 
 ## Getting started
 
-```bash
-cd frontend
+`ash
 npm install
 npm run dev
-```
+`
 
-The dev server runs at http://localhost:3000 by default.
+Visit http://localhost:5173 to interact with the interface. The page simulates the detector pipeline with heuristic placeholders.
 
-## Features
+## Available scripts
 
-- Dual-pane workspace with code input (paste or upload) and live prediction results.
-- Example snippets to demo the pipeline without backend provisioning.
-- Persisted session history (in-memory) to compare recent predictions.
-- Mock API route (`/api/predict`) that emulates heuristic scoring while backend integration is under construction.
+- 
+pm run dev – start the Vite dev server
+- 
+pm run build – type-check and compile production assets
+- 
+pm run preview – preview the production build
+- 
+pm run lint – run ESLint across the project
+- 
+pm test – execute Jest + Testing Library tests
 
-## Project layout
+## Project structure
 
-```
+`
 frontend/
-+-- src/app/               # App Router pages & API routes
-¦   +-- api/predict/       # Mock inference endpoint
-¦   +-- layout.tsx         # Root layout with shared fonts/styles
-¦   +-- page.tsx           # Main dashboard
-+-- src/components/        # UI building blocks (shadcn-style primitives + analyzer panels)
-+-- src/hooks/             # Reusable React hooks
-+-- src/lib/               # Utilities & example snippets
-+-- src/stores/            # Zustand stores
-+-- src/types/             # Shared TypeScript contracts
-+-- tailwind.config.ts     # Design tokens & theme extensions
-```
++-- src/
+¦   +-- components/          # UI building blocks
+¦   +-- data/                # Example snippets used in the demo
+¦   +-- types.ts             # Shared TypeScript definitions
+¦   +-- App.tsx              # Root page layout
+¦   +-- setupTests.ts        # Jest DOM polyfills
++-- tailwind.config.js       # Tailwind configuration
++-- jest.config.js           # Jest + ts-jest configuration
++-- eslint.config.js         # ESLint flat config with Prettier integration
+`
 
-## Next steps
-
-- Replace the mock predictor API with calls into the Python inference service.
-- Wire up streaming updates from long-running analyses.
-- Add authentication and workspace scoping if the tool is deployed broadly.
-- Expand the explanations view with SHAP charts once model artefacts are available.
+The UI works independently of the Python CLI, making it easy to iterate on user experience while the backend evolves.
