@@ -11,17 +11,17 @@ A research-grade toolkit for estimating whether a source file was written by a h
 - Statistical model hooks (logistic regression, random forest) with calibrated probabilities and optional stacking.
 - Command-line interface for single files, directories, and benchmark manifests with JSON or pretty outputs.
 - Dataset utilities for reproducible collection, hashing-based deduplication, and manifest-driven experiments.
-- Responsive web dashboard (frontend/) that mirrors the CLI flow for copy, UX, and explainability iteration.
+- Responsive web dashboard (rontend/) with configurable model profiles, heuristic overlays, and result history to mirror the CLI flow while surfacing explanations.
 
 ## Tech stack
 
 - **Backend:** Python 3.10+, Typer, Rich, NumPy, Pandas, scikit-learn, SHAP, tree-sitter, Radon, wordfreq, orjson.
-- **Frontend:** React 19, TypeScript 5, Vite 7, Tailwind CSS 3, Jest plus Testing Library, ESLint (flat) plus Prettier.
+- **Frontend:** React 19, TypeScript 5, Vite 7, Tailwind CSS 3, Jest + Testing Library, ESLint (flat) + Prettier.
 - **Tooling:** Ruff, mypy, pytest (Python); npm scripts for lint, test, build, and format on the frontend.
 
 ## Repository layout
 
-```
+`
 code-origin-detector/
 |-- README.md
 |-- pyproject.toml             # Python package metadata
@@ -38,51 +38,56 @@ code-origin-detector/
 |-- frontend/                  # React app (Vite project)
 |   |-- src/components/        # AnalyzerPanel, ResultPanel, Header, shared UI pieces
 |   |-- src/data/              # Curated example snippets for the demo
-|   |-- src/types.ts           # Frontend domain types
-|   |-- tailwind.config.js     # Design token extensions
+|   |-- src/types.ts           # Frontend domain types (analysis settings, predictions, explanations)
+|   |-- tailwind.config.js     # Design token extensions (brand palette, shadows, spacing)
 |-- .github/workflows/         # CI definitions
-```
+`
 
 ## Getting started
 
 ### Backend CLI
 
-```bash
+`ash
 python -m pip install -r requirements.txt
 python -m pip install -e .
 code-origin-detector predict ./path/to/project --include "*.py,*.js" --output-format pretty
-```
+`
 
-The default `heuristic_v1` model relies on interpretable rules. To use trained scikit-learn baselines, save a calibrated estimator with helpers in `src/detector/models/train.py` and point the CLI at the exported Joblib artifact (for example `--model artifacts/rf_v1.joblib`).
+The default heuristic_v1 model relies on interpretable rules. To use trained scikit-learn baselines, save a calibrated estimator with helpers in src/detector/models/train.py and point the CLI at the exported Joblib artifact (for example --model artifacts/rf_v1.joblib).
 
 ### Frontend dashboard
 
-```bash
+`ash
 cd frontend
 npm install
 npm run dev
-```
+`
 
-Open the Vite URL (default `http://localhost:5173`) to explore the detector flow, revised copy, and accessibility patterns. The UI runs client-side heuristics only; wire it to APIs as they become available.
+Open the Vite URL (default http://localhost:5173) to explore the detector flow, revised copy, and accessibility patterns. The UI runs client-side heuristics only; wire it to APIs as they become available.
+
+### Frontend experience highlights
+
+- AnalyzerPanel now includes filename editing, drag-and-drop uploads with validation, curated example tiles, model profile selection, and heuristic overlay toggles.
+- ResultPanel surfaces verdict badges, a confidence meter, heuristics (expandable), limitations callouts, copy/download actions, and a selectable history timeline.
+- Tailwind design tokens in 	ailwind.config.js extend brand/neutral palettes, card shadows, container widths, and motion-safe focus styles for consistency.
+- Analysis settings (model, heuristics, explanation density) and runtime metadata are persisted per prediction for clearer provenance.
 
 ## Testing and quality
 
-- **Python:** `pytest`, `pytest --cov`, `ruff check`, and `mypy` (install via `pip install -e .[ci]`).
-- **Frontend:** `npm run lint`, `npm test`, `npm run build`, and `npm run format`.
+- **Python:** pytest, pytest --cov, uff check, and mypy (install via pip install -e .[ci]).
+- **Frontend:** 
+pm run lint, 
+pm test, 
+pm run build, and 
+pm run format.
 
 ## Data roadmap
 
 1. **Human corpus:** Sample pre-2020 commits from vetted OSS repositories (license and language filters). Remove generated or minified artifacts, cap per-repo contributions, and tag as human-authored.
-2. **AI corpus:** Generate program variants via scripted prompts in `docs/prompts.md`, recording task descriptions, temperatures, and rewrite strategies for reproducibility.
+2. **AI corpus:** Generate program variants via scripted prompts in docs/prompts.md, recording task descriptions, temperatures, and rewrite strategies for reproducibility.
 3. **Splits and dedup:** Apply SHA-256 hashing plus 20-token shingles to remove duplicates. Split train/validation/test by repository and maintain a temporal hold-out (post-2024 code).
 
-Metadata schemas live in `data/metadata/schema.json` for consistent ingestion across tooling.
-
-## Frontend highlights
-
-- Responsive layout with AnalyzerPanel inputs (paste, upload, curated examples) and ResultPanel verdicts.
-- Focus management, ARIA annotations, drag-and-drop with keyboard parity, and motion-reduced fallbacks.
-- Result cards surface probabilistic verdicts, confidence bands, heuristics, limitations, and export actions.
+Metadata schemas live in data/metadata/schema.json for consistent ingestion across tooling.
 
 ## Responsible use
 
