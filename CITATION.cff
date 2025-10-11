@@ -1,0 +1,19 @@
+cff-version: 1.2.0
+message: If you use Code Origin Detector in your research, please cite it using the metadata below.
+title: Code Origin Detector
+version: 0.1.0
+date-released: 2025-09-20
+abstract: >
+  Code Origin Detector is a research-grade toolkit that combines heuristics, stylometry,
+  and machine learning models to estimate whether source code was authored by humans or AI systems.
+repository-code: https://github.com/code-origin-detector/code-origin-detector
+license: MIT
+authors:
+  - name: Code Origin Detector Team
+contact:
+  - email: research@code-origin-detector.org
+keywords:
+  - code-authorship
+  - ai-detection
+  - stylometry
+  - machine-learning

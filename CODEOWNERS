@@ -1,0 +1,11 @@
+# Default owners
+* @code-origin-detector/maintainers
+
+# Frontend
+frontend/ @code-origin-detector/frontend
+
+# Backend
+src/ @code-origin-detector/backend
+
+# Documentation
+docs/ @code-origin-detector/docs

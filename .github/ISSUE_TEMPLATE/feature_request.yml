@@ -1,0 +1,48 @@
+name: Feature request
+description: Suggest an idea or enhancement for Code Origin Detector.
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for helping improve the project. Tell us about the problem you are trying to solve.
+  - type: input
+    id: summary
+    attributes:
+      label: Summary
+      placeholder: Example: Support for TypeScript heuristics
+    validations:
+      required: true
+  - type: textarea
+    id: use_case
+    attributes:
+      label: Use case
+      description: Describe who benefits and why.
+    validations:
+      required: true
+  - type: textarea
+    id: proposed_solution
+    attributes:
+      label: Proposed solution
+      description: Explain what you would like to see happen.
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Detection pipeline
+        - User interface
+        - Dataset tooling
+        - Documentation
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
