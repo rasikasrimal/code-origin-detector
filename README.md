@@ -4,6 +4,16 @@ A research-grade toolkit for estimating whether a source file was written by a h
 
 > Status: early prototype. Ships with a heuristic baseline, stylometry/program-analysis feature scaffolding, a Typer CLI, and a redesigned React dashboard for demonstrations.
 
+## Screenshots
+
+<!-- TODO: Replace placeholder paths with actual screenshots -->
+<p align="center">
+  <img src="assets/diagrams/dashboard-overview.png" alt="Dashboard overview" width="720">
+</p>
+<p align="center">
+  <img src="assets/diagrams/cli-verdicts.png" alt="CLI verdicts output" width="720">
+</p>
+
 ## Key Capabilities
 
 - AST and stylometry feature extraction for Python and JavaScript with a pluggable pipeline for additional languages.
