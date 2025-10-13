@@ -10,7 +10,7 @@ A research-grade toolkit for estimating whether a source file was written by a h
   <img  alt="image1" src="https://github.com/user-attachments/assets/be3ecf77-06eb-473b-9838-a4ef2a838532" />
   
   <img width="500" alt="image2" src="https://github.com/user-attachments/assets/4f72cfb6-7395-4848-bb17-4fa901ca09eb" />
-  <img width="505" height="755" alt="image3" src="https://github.com/user-attachments/assets/37586a6b-c4ba-4dbb-9b17-31696ecdd860" />
+  <img width="500" height="755" alt="image3" src="https://github.com/user-attachments/assets/37586a6b-c4ba-4dbb-9b17-31696ecdd860" />
 </div>
 
 
