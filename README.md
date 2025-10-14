@@ -4,13 +4,28 @@ A research-grade toolkit for estimating whether a source file was written by a h
 
 > Status: early prototype. Ships with a heuristic baseline, stylometry/program-analysis feature scaffolding, a Typer CLI, and a redesigned React dashboard for demonstrations.
 
+## Table of Contents
+
+- [Screenshots](#screenshots)
+- [Key Capabilities](#key-capabilities)
+- [Getting Started](#getting-started)
+  - [Backend CLI](#backend-cli)
+  - [Frontend Dashboard](#frontend-dashboard)
+  - [Frontend Experience Highlights](#frontend-experience-highlights)
+- [Testing and Quality](#testing-and-quality)
+- [Data Roadmap](#data-roadmap)
+- [Responsible Use](#responsible-use)
+- [Citations and References](#citations-and-references)
+
 ## Screenshots
 
+The Code Origin Detector provides an intuitive web interface for analyzing code authorship with real-time feedback and detailed explanations.
+
 <div style="display: flex; justify-content: center; gap: 20px; align-items: center;">
-  <img  alt="image1" src="https://github.com/user-attachments/assets/be3ecf77-06eb-473b-9838-a4ef2a838532" />
+  <img alt="Code Origin Detector Dashboard - Main Analysis Interface" src="https://github.com/user-attachments/assets/be3ecf77-06eb-473b-9838-a4ef2a838532" />
   
-  <img width="500" alt="image2" src="https://github.com/user-attachments/assets/4f72cfb6-7395-4848-bb17-4fa901ca09eb" />
-  <img width="500" height="755" alt="image3" src="https://github.com/user-attachments/assets/37586a6b-c4ba-4dbb-9b17-31696ecdd860" />
+  <img width="500" alt="Code Analysis Settings and Configuration Panel" src="https://github.com/user-attachments/assets/4f72cfb6-7395-4848-bb17-4fa901ca09eb" />
+  <img width="500" height="755" alt="Analysis Results with Heuristic Explanations" src="https://github.com/user-attachments/assets/37586a6b-c4ba-4dbb-9b17-31696ecdd860" />
 </div>
 
 
@@ -88,3 +103,50 @@ Metadata schemas live in `data/metadata/schema.json` for consistent ingestion ac
 ## Responsible Use
 
 The detector produces advisory signals, not definitive judgments. False positives can occur for human-written code (especially boilerplate or generated scaffolding), and AI-generated code can resemble expert human work. Treat probabilities as guidance to focus manual review, not as an automated gate or policy decision.
+
+## Citations and References
+
+### Core Technologies
+
+#### Backend
+- **Python** (≥3.10) - [https://www.python.org/](https://www.python.org/)
+- **Typer** (≥0.9) - Command-line interface framework - [https://typer.tiangolo.com/](https://typer.tiangolo.com/)
+- **Rich** (≥13) - Terminal output formatting - [https://rich.readthedocs.io/](https://rich.readthedocs.io/)
+- **scikit-learn** (≥1.3) - Machine learning library - [https://scikit-learn.org/](https://scikit-learn.org/)
+  - Pedregosa et al., "Scikit-learn: Machine Learning in Python", *JMLR* 12, pp. 2825-2830, 2011
+- **NumPy** (≥1.23) - Numerical computing - [https://numpy.org/](https://numpy.org/)
+- **pandas** (≥2.0) - Data analysis and manipulation - [https://pandas.pydata.org/](https://pandas.pydata.org/)
+- **SHAP** (≥0.44) - Model interpretability - [https://shap.readthedocs.io/](https://shap.readthedocs.io/)
+  - Lundberg & Lee, "A Unified Approach to Interpreting Model Predictions", *NeurIPS* 2017
+- **tree-sitter** (≥0.20) - Parser generator for syntax trees - [https://tree-sitter.github.io/](https://tree-sitter.github.io/)
+- **Radon** (≥6.0) - Code complexity metrics - [https://radon.readthedocs.io/](https://radon.readthedocs.io/)
+
+#### Frontend
+- **React** (^19.1.1) - UI framework - [https://react.dev/](https://react.dev/)
+- **Vite** (^7.1.7) - Build tool and development server - [https://vite.dev/](https://vite.dev/)
+- **TypeScript** (~5.8.3) - Type-safe JavaScript - [https://www.typescriptlang.org/](https://www.typescriptlang.org/)
+- **Tailwind CSS** (^3.4.17) - Utility-first CSS framework - [https://tailwindcss.com/](https://tailwindcss.com/)
+
+### Related Research
+
+For research on code authorship attribution and AI-generated code detection, refer to:
+
+- Burrows et al., "Stylometry and Code Authorship Attribution", *Digital Investigations* 2016
+- Caliskan et al., "De-anonymizing Programmers via Code Stylometry", *USENIX Security* 2015
+- Solaiman et al., "Release Strategies and the Social Impacts of Language Models", *arXiv* 2019
+
+### Citation
+
+If you use Code Origin Detector in your research, please cite:
+
+```bibtex
+@software{code_origin_detector,
+  title = {Code Origin Detector},
+  author = {Code Origin Detector Team},
+  year = {2025},
+  version = {0.1.0},
+  url = {https://github.com/rasikasrimal/code-origin-detector}
+}
+```
+
+For the full citation metadata, see [CITATION.cff](CITATION.cff).
